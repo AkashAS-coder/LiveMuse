@@ -257,7 +257,9 @@ function setupEventListeners() {
 // WebSocket connection
 function connectWebSocket() {
     const roomId = new URLSearchParams(window.location.search).get('room');
-    const wsUrl = `ws://${window.location.host}/ws/${roomId}`;
+    // Use secure WebSocket for HTTPS (production) and regular WebSocket for HTTP (development)
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/${roomId}`;
     
     socket = new WebSocket(wsUrl);
     
