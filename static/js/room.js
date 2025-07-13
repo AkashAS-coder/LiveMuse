@@ -1862,7 +1862,6 @@ function toggleMute() {
 function testVoiceCall() {
     showNotification('Voice call test - feature coming soon!', 'info');
 }
-
 function addVoiceParticipant(username) {
     // Add voice participant to UI
 }

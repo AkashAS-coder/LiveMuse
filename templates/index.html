@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -168,4 +169,186 @@
 
     <script src="{{ url_for('static', filename='js/index.js') }}"></script>
 </body>
+=======
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiveMuse - AI-Powered Music Collaboration</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <i class="fas fa-music"></i>
+                <h1>LiveMuse</h1>
+            </div>
+            <p class="tagline">Real-time AI-powered music collaboration</p>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Hero Section -->
+            <section class="hero">
+                <div class="hero-content">
+                    <h2>Create Music Together</h2>
+                    <p>Join live jam sessions with AI assistance. Collaborate with musicians worldwide in real-time.</p>
+                    <button class="btn btn-primary" onclick="openCreateRoomModal()">
+                        <i class="fas fa-plus"></i>
+                        Create New Room
+                    </button>
+                </div>
+                <div class="hero-visual">
+                    <div class="music-waves">
+                        <div class="wave"></div>
+                        <div class="wave"></div>
+                        <div class="wave"></div>
+                        <div class="wave"></div>
+                        <div class="wave"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Features -->
+            <section class="features">
+                <div class="feature-card">
+                    <i class="fas fa-users"></i>
+                    <h3>Real-time Collaboration</h3>
+                    <p>Jam with musicians from around the world in live sessions</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-robot"></i>
+                    <h3>AI Music Generation</h3>
+                    <p>Get intelligent chord suggestions and AI-generated melodies</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-music"></i>
+                    <h3>Famous Songs Library</h3>
+                    <p>Play and edit copyright-free classics like Twinkle Twinkle</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-sliders-h"></i>
+                    <h3>Audio Effects</h3>
+                    <p>Add reverb, delay, distortion, and filters in real-time</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-gamepad"></i>
+                    <h3>Music Games</h3>
+                    <p>Challenge yourself with rhythm, melody, and chord games</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-microphone"></i>
+                    <h3>Voice Commands</h3>
+                    <p>Control the app hands-free with voice recognition</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-trophy"></i>
+                    <h3>Competitions</h3>
+                    <p>Compete in speed, accuracy, and creativity challenges</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-graduation-cap"></i>
+                    <h3>Music Lessons</h3>
+                    <p>Learn scales, chords, and rhythm with interactive tutorials</p>
+                </div>
+            </section>
+
+            <!-- Active Rooms -->
+            <section class="rooms-section">
+                <div class="section-header">
+                    <h2>Active Jam Sessions</h2>
+                    <button class="btn btn-secondary" onclick="refreshRooms()">
+                        <i class="fas fa-sync-alt"></i>
+                        Refresh
+                    </button>
+                </div>
+                <div class="rooms-grid" id="roomsGrid">
+                    <div class="loading">Loading active rooms...</div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Create Room Modal -->
+        <div class="modal" id="createRoomModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Create New Jam Session</h3>
+                    <button class="close-btn" onclick="closeCreateRoomModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <form id="createRoomForm" class="modal-form">
+                    <div class="form-group">
+                        <label for="roomName">Room Name</label>
+                        <input type="text" id="roomName" name="roomName" placeholder="Enter room name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="creatorName">Your Name</label>
+                        <input type="text" id="creatorName" name="creatorName" placeholder="Enter your name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="instrument">Your Instrument</label>
+                        <select id="instrument" name="instrument">
+                            <option value="piano">Piano</option>
+                            <option value="guitar">Guitar</option>
+                            <option value="drums">Drums</option>
+                            <option value="bass">Bass</option>
+                            <option value="synth">Synthesizer</option>
+                            <option value="vocals">Vocals</option>
+                            <option value="violin">Violin</option>
+                            <option value="saxophone">Saxophone</option>
+                        </select>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeCreateRoomModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Create Room</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Join Room Modal -->
+        <div class="modal" id="joinRoomModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Join Jam Session</h3>
+                    <button class="close-btn" onclick="closeJoinRoomModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <form id="joinRoomForm" class="modal-form">
+                    <div class="form-group">
+                        <label for="joinUsername">Your Name</label>
+                        <input type="text" id="joinUsername" name="joinUsername" placeholder="Enter your name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="joinInstrument">Your Instrument</label>
+                        <select id="joinInstrument" name="joinInstrument">
+                            <option value="piano">Piano</option>
+                            <option value="guitar">Guitar</option>
+                            <option value="drums">Drums</option>
+                            <option value="bass">Bass</option>
+                            <option value="synth">Synthesizer</option>
+                            <option value="vocals">Vocals</option>
+                            <option value="violin">Violin</option>
+                            <option value="saxophone">Saxophone</option>
+                        </select>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeJoinRoomModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Join Room</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/index.js') }}"></script>
+</body>
+>>>>>>> b0f5016374175ccb7f52747c046935e1f9a6832c
 </html> 

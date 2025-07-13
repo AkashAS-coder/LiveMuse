@@ -57,9 +57,6 @@ class MusicRoom:
         
         # Voice call participants tracking
         self.voice_participants = {}  # username -> voice call data
-        
-        # Voice call participants tracking
-        self.voice_participants = {}  # username -> voice call data
 
     def add_participant(self, username, instrument='piano'):
         colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8']
@@ -202,124 +199,87 @@ class MusicRoom:
         return list(self.voice_participants.values())
 
     def update_voice_mute_status(self, username, muted):
-        """Update mute status for a voice participant"""
+        """Update voice mute status for a user"""
         if username in self.voice_participants:
             self.voice_participants[username]['muted'] = muted
             return True
         return False
 
     def get_ai_visualization(self):
-        """Generate AI visualization based on current session"""
-        try:
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            
-            # Analyze music patterns for visualization
-            recent_notes = self.music_history[-30:] if self.music_history else []
-            if recent_notes:
-                note_pattern = [note['note'] for note in recent_notes]
-                instruments = list(set([note['instrument'] for note in recent_notes]))
-                genres = [note.get('genre', 'electronic') for note in recent_notes]
-                
-                prompt = f"""
-                Create a visual description for a music visualization based on this jam session:
-                - Genre: {self.current_track['genre']}
-                - Key: {self.current_track['key']}
-                - BPM: {self.current_track['bpm']}
-                - Recent notes: {note_pattern[:15]}
-                - Instruments: {instruments}
-                
-                Generate a JSON response with:
-                {{
-                    "type": "waveform|particles|geometric|organic",
-                    "colors": ["primary_color", "secondary_color", "accent_color"],
-                    "pattern": "description of visual pattern",
-                    "animation": "description of animation style",
-                    "mood": "energetic|calm|mysterious|playful"
-                }}
-                
-                Make it creative and music-responsive.
-                """
-                
-                response = model.generate_content(prompt)
-                visualization = json.loads(response.text)
-                visualization['timestamp'] = time.time()
-                self.ai_visualization = visualization
-                return visualization
-            else:
-                return {
-                    "type": "waveform",
-                    "colors": ["#FFD700", "#4ECDC4", "#FF6B6B"],
-                    "pattern": "Flowing waves that respond to music",
-                    "animation": "Smooth sine wave animation",
-                    "mood": "playful",
-                    "timestamp": time.time()
-                }
-        except Exception as e:
+        """Generate AI visualization based on current music"""
+        if not self.music_history:
             return {
-                "type": "waveform",
-                "colors": ["#FFD700", "#4ECDC4", "#FF6B6B"],
-                "pattern": "Default music visualization",
-                "animation": "Wave animation",
-                "mood": "energetic",
-                "timestamp": time.time()
+                'type': 'waveform',
+                'colors': ['#FF6B6B', '#4ECDC4', '#45B7D1']
+            }
+        
+        # Analyze recent notes for visualization
+        recent_notes = self.music_history[-10:] if len(self.music_history) >= 10 else self.music_history
+        
+        # Simple visualization based on note frequency
+        note_freq = {}
+        for note in recent_notes:
+            note_name = note['note']
+            note_freq[note_name] = note_freq.get(note_name, 0) + 1
+        
+        if len(note_freq) > 3:
+            return {
+                'type': 'particles',
+                'colors': ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7']
+            }
+        elif len(note_freq) > 1:
+            return {
+                'type': 'geometric',
+                'colors': ['#FF6B6B', '#4ECDC4', '#45B7D1']
+            }
+        else:
+            return {
+                'type': 'waveform',
+                'colors': ['#FF6B6B', '#4ECDC4']
             }
 
     def get_ai_suggestion(self):
-        """Generate AI music suggestions based on current session"""
-        try:
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            
-            # Analyze recent music patterns
-            recent_notes = self.music_history[-20:] if self.music_history else []
-            if recent_notes:
-                note_pattern = [note['note'] for note in recent_notes]
-                instruments = list(set([note['instrument'] for note in recent_notes]))
-                
-                prompt = f"""
-                You are an AI music collaborator in a live jam session. 
-                Current track: {self.current_track['genre']} in {self.current_track['key']} at {self.current_track['bpm']} BPM
-                Recent notes: {note_pattern[:10]}
-                Instruments: {instruments}
-                
-                Provide a creative musical suggestion in this format:
-                {{
-                    "type": "melody|rhythm|harmony|mood_change",
-                    "suggestion": "specific musical idea",
-                    "reasoning": "why this would work well",
-                    "confidence": 0.8
-                }}
-                
-                Keep it brief and actionable for live performance.
-                """
-                
-                response = model.generate_content(prompt)
-                suggestion = json.loads(response.text)
-                suggestion['timestamp'] = time.time()
-                self.ai_suggestions.append(suggestion)
-                return suggestion
-            else:
-                return {
-                    "type": "melody",
-                    "suggestion": f"Start with a simple {self.current_track['key']} major scale",
-                    "reasoning": "Good foundation for collaborative jamming",
-                    "confidence": 0.9,
-                    "timestamp": time.time()
-                }
-        except Exception as e:
+        """Generate AI suggestion based on current music"""
+        if not self.music_history:
             return {
-                "type": "melody",
-                "suggestion": "Try playing around with the current key",
-                "reasoning": "AI suggestion unavailable",
-                "confidence": 0.5,
-                "timestamp": time.time()
+                'type': 'general',
+                'suggestion': 'Try playing some notes to get started!',
+                'reasoning': 'No music has been played yet.'
+            }
+        
+        recent_notes = self.music_history[-5:] if len(self.music_history) >= 5 else self.music_history
+        
+        # Simple suggestion logic
+        note_names = [note['note'] for note in recent_notes]
+        unique_notes = len(set(note_names))
+        
+        if unique_notes == 1:
+            return {
+                'type': 'melody',
+                'suggestion': 'Try adding some variety to your melody!',
+                'reasoning': 'You\'ve been playing the same note repeatedly.'
+            }
+        elif unique_notes < 3:
+            return {
+                'type': 'harmony',
+                'suggestion': 'Consider adding some harmony notes!',
+                'reasoning': 'You have a simple melody, try adding chords.'
+            }
+        else:
+            return {
+                'type': 'rhythm',
+                'suggestion': 'Great melody! Try varying the rhythm.',
+                'reasoning': 'You have good note variety, now work on timing.'
             }
 
+# Room management
 def create_room(name, creator):
     room_id = str(uuid.uuid4())
     room = MusicRoom(room_id, name, creator)
     rooms[room_id] = room
     return room
 
+# Routes
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -327,25 +287,34 @@ def index():
 @app.route('/room/<room_id>')
 def room(room_id):
     if room_id in rooms:
-        return render_template('room.html', room=rooms[room_id])
-    return "Room not found", 404
+        room = rooms[room_id]
+        return render_template('room.html', room=room)
+    else:
+        return "Room not found", 404
 
+# API Routes
 @app.route('/api/rooms', methods=['GET'])
 def get_rooms():
-    active_rooms = [{
-        'id': room.room_id,
-        'name': room.name,
-        'participant_count': len(room.participants),
-        'creator': room.creator,
-        'created_at': room.created_at.isoformat()
-    } for room in rooms.values() if room.is_active]
-    return jsonify(active_rooms)
+    room_list = []
+    for room_id, room in rooms.items():
+        if room.is_active:
+            room_list.append({
+                'id': room_id,
+                'name': room.name,
+                'creator': room.creator,
+                'participant_count': len(room.participants),
+                'created_at': room.created_at.isoformat()
+            })
+    return jsonify(room_list)
 
 @app.route('/api/rooms', methods=['POST'])
 def create_room_api():
     data = request.get_json()
-    name = data.get('name', 'Untitled Jam')
-    creator = data.get('creator', 'Anonymous')
+    name = data.get('name')
+    creator = data.get('creator')
+    
+    if not name or not creator:
+        return jsonify({'error': 'Name and creator are required'}), 400
     
     room = create_room(name, creator)
     return jsonify({
@@ -359,17 +328,16 @@ def get_room_info(room_id):
     if room_id in rooms:
         room = rooms[room_id]
         return jsonify({
-            'id': room.room_id,
+            'id': room_id,
             'name': room.name,
-            'participants': list(room.participants.values()),
-            'current_track': room.current_track,
-            'music_history_count': len(room.music_history),
-            'ai_suggestions_count': len(room.ai_suggestions),
-            'leaderboard': room.leaderboard
+            'creator': room.creator,
+            'participants': room.participants,
+            'current_track': room.current_track
         })
-    return jsonify({'error': 'Room not found'}), 404
+    else:
+        return jsonify({'error': 'Room not found'}), 404
 
-# WebSocket Events
+# Socket.IO Events
 @socketio.on('connect')
 def handle_connect():
     print(f"Client connected: {request.sid}")
@@ -389,22 +357,21 @@ def handle_join_room(data):
         room.add_participant(username, instrument)
         join_room(room_id)
         
-        # Notify all participants
+        # Send room state to the new user
+        emit('room_state', {
+            'bpm': room.current_track['bpm'],
+            'key': room.current_track['key'],
+            'genre': room.current_track['genre'],
+            'participants': room.participants
+        })
+        
+        # Notify all users about the new participant
         emit('user_joined', {
             'username': username,
-            'instrument': instrument,
-            'participants': list(room.participants.values())
+            'instrument': instrument
         }, room=room_id)
-        
-        # Send current room state
-        emit('room_state', {
-            'current_track': room.current_track,
-            'music_history': room.music_history[-50:],  # Last 50 notes
-            'ai_suggestions': room.ai_suggestions[-5:],   # Last 5 suggestions
-            'chat_messages': room.chat_messages[-20:],    # Last 20 messages
-            'leaderboard': room.leaderboard,
-            'ai_visualization': room.ai_visualization
-        })
+    else:
+        emit('error', {'message': 'Room not found'})
 
 @socketio.on('leave_room')
 def handle_leave_room(data):
@@ -416,16 +383,24 @@ def handle_leave_room(data):
         room.remove_participant(username)
         leave_room(room_id)
         
+        # Notify all users about the participant leaving
         emit('user_left', {
-            'username': username,
-            'participants': list(room.participants.values())
+            'username': username
         }, room=room_id)
+        
+        # If room is empty, mark it as inactive
+        if len(room.participants) == 0:
+            room.is_active = False
 
 @socketio.on('play_note')
 def handle_play_note(data):
     room_id = data['room_id']
     username = data['username']
-    note_data = data['note_data']
+    note_data = {
+        'note': data['note'],
+        'velocity': data.get('velocity', 0.8),
+        'duration': data.get('duration', 0.5)
+    }
     
     if room_id in rooms:
         room = rooms[room_id]

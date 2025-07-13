@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # LiveMuse Environment Variables Template
 # Copy this file to .env and fill in your actual values
 
@@ -11,4 +12,19 @@ SECRET_KEY=your_secure_secret_key_here
 FLASK_ENV=development
 
 # Optional: Port (default: 5000)
+=======
+# LiveMuse Environment Variables Template
+# Copy this file to .env and fill in your actual values
+
+# Required: Google Gemini API Key (get from https://makersuite.google.com/app/apikey)
+GEMINI_API_KEY=your_google_gemini_api_key_here
+
+# Required: Flask Secret Key (generate with: python -c "import secrets; print(secrets.token_hex(32))")
+SECRET_KEY=your_secure_secret_key_here
+
+# Optional: Environment (development/production)
+FLASK_ENV=development
+
+# Optional: Port (default: 5000)
+>>>>>>> b0f5016374175ccb7f52747c046935e1f9a6832c
 PORT=5000 
