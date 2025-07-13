@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dream App - Music Room</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/room.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body class="room-body">
+    <div class="room-container">
+        <!-- Room Header -->
+        <header class="room-header">
+            <div class="room-info">
+                <h1>{{ room.name }}</h1>
+                <div class="room-stats">
+                    <span class="stat">
+                        <i class="fas fa-users"></i>
+                        <span id="participantCount">{{ room.participants|length }}</span> participants
+                    </span>
+                    <span class="stat">
+                        <i class="fas fa-music"></i>
+                        <span id="noteCount">0</span> notes played
+                    </span>
+                </div>
+            </div>
+            <div class="room-controls">
+                <button class="btn btn-secondary" onclick="toggleBackgroundSelector()">
+                    <i class="fas fa-image"></i>
+                    Background
+                </button>
+                <button class="btn btn-secondary" onclick="toggleSettings()">
+                    <i class="fas fa-cog"></i>
+                    Settings
+                </button>
+                <button class="btn btn-danger" onclick="leaveRoom()">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Leave Room
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <div class="room-content">
+            <!-- Left Panel - Participants & Chat -->
+            <div class="left-panel">
+                <!-- Participants -->
+                <div class="participants-section">
+                    <h3>Participants</h3>
+                    <div class="participants-list" id="participantsList">
+                        {% for participant in room.participants.values() %}
+                        <div class="participant" data-username="{{ participant.username }}">
+                            <div class="participant-avatar" style="background-color: {{ participant.color }}">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <div class="participant-info">
+                                <span class="participant-name">{{ participant.username }}</span>
+                                <span class="participant-instrument">{{ participant.instrument }}</span>
+                            </div>
+                            <div class="participant-status">
+                                <div class="status-indicator active"></div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Voice Call Controls -->
+                <div class="voice-call-section">
+                    <h3>Voice Call</h3>
+                    <div class="voice-controls">
+                        <button class="btn btn-primary" id="joinVoiceBtn" onclick="joinVoiceCall()">
+                            <i class="fas fa-phone"></i>
+                            Join Voice
+                        </button>
+                        <button class="btn btn-danger" id="leaveVoiceBtn" onclick="leaveVoiceCall()" style="display: none;">
+                            <i class="fas fa-phone-slash"></i>
+                            Leave Voice
+                        </button>
+                        <button class="btn btn-secondary" id="muteBtn" onclick="toggleMute()" style="display: none;">
+                            <i class="fas fa-microphone"></i>
+                            Mute
+                        </button>
+                        <button class="btn btn-info" onclick="testVoiceCall()" style="font-size: 0.8rem; padding: 4px 8px;">
+                            <i class="fas fa-bug"></i>
+                            Test
+                        </button>
+                    </div>
+                    <div class="voice-participants" id="voiceParticipants">
+                        <div class="voice-participant">
+                            <i class="fas fa-user"></i>
+                            <span>No one in voice call</span>
+                        </div>
+                    </div>
+                    <div class="voice-notice" id="voiceNotice" style="display: none;">
+                        <i class="fas fa-info-circle"></i>
+                        <small>Voice calls require HTTPS or localhost. Use <code>localhost:5000</code> for development.</small>
+                    </div>
+                </div>
+
+                <!-- Chat -->
+                <div class="chat-section">
+                    <h3>Chat</h3>
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="system-message">
+                            Welcome to {{ room.name }}! Start jamming together.
+                        </div>
+                    </div>
+                    <div class="chat-input">
+                        <button class="btn" id="emojiPickerBtn" type="button" style="font-size:1.3rem;">😀</button>
+                        <input type="text" id="chatInput" placeholder="Type a message...">
+                        <button onclick="sendChatMessage()">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center Panel - Music Interface -->
+            <div class="center-panel">
+                <!-- Track Settings -->
+                <div class="track-settings" id="trackSettings">
+                    <div class="setting-group">
+                        <label>BPM</label>
+                        <input type="range" id="bpmSlider" min="60" max="200" value="{{ room.current_track.bpm }}">
+                        <span id="bpmValue">{{ room.current_track.bpm }}</span>
+                    </div>
+                    <div class="setting-group">
+                        <label>Key</label>
+                        <select id="keySelect">
+                            <option value="C" {% if room.current_track.key == 'C' %}selected{% endif %}>C</option>
+                            <option value="G" {% if room.current_track.key == 'G' %}selected{% endif %}>G</option>
+                            <option value="D" {% if room.current_track.key == 'D' %}selected{% endif %}>D</option>
+                            <option value="A" {% if room.current_track.key == 'A' %}selected{% endif %}>A</option>
+                            <option value="E" {% if room.current_track.key == 'E' %}selected{% endif %}>E</option>
+                            <option value="B" {% if room.current_track.key == 'B' %}selected{% endif %}>B</option>
+                            <option value="F#" {% if room.current_track.key == 'F#' %}selected{% endif %}>F#</option>
+                            <option value="C#" {% if room.current_track.key == 'C#' %}selected{% endif %}>C#</option>
+                            <option value="F" {% if room.current_track.key == 'F' %}selected{% endif %}>F</option>
+                            <option value="Bb" {% if room.current_track.key == 'Bb' %}selected{% endif %}>Bb</option>
+                            <option value="Eb" {% if room.current_track.key == 'Eb' %}selected{% endif %}>Eb</option>
+                            <option value="Ab" {% if room.current_track.key == 'Ab' %}selected{% endif %}>Ab</option>
+                        </select>
+                    </div>
+                    <div class="setting-group">
+                        <label>Genre</label>
+                        <select id="genreSelect">
+                            <option value="electronic" {% if room.current_track.genre == 'electronic' %}selected{% endif %}>Electronic</option>
+                            <option value="jazz" {% if room.current_track.genre == 'jazz' %}selected{% endif %}>Jazz</option>
+                            <option value="rock" {% if room.current_track.genre == 'rock' %}selected{% endif %}>Rock</option>
+                            <option value="classical" {% if room.current_track.genre == 'classical' %}selected{% endif %}>Classical</option>
+                            <option value="ambient" {% if room.current_track.genre == 'ambient' %}selected{% endif %}>Ambient</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Multi-Instrument Interface -->
+                <div class="piano-section">
+                    <div class="instrument-label">
+                        <i class="fas fa-music"></i>
+                        <span id="currentInstrumentLabel">Piano</span>
+                    </div>
+                    
+                    <!-- Recording Controls -->
+                    <div class="recording-controls">
+                        <button class="btn btn-danger" id="recordBtn" onclick="toggleRecording()">
+                            <i class="fas fa-circle" id="recordIcon"></i>
+                            <span id="recordText">Start Recording</span>
+                        </button>
+                        <button class="btn btn-secondary" id="saveRecordingBtn" onclick="saveRecording()" style="display: none;">
+                            <i class="fas fa-save"></i>
+                            Save Recording
+                        </button>
+                        <button class="btn btn-info" onclick="showRecordingsModal()">
+                            <i class="fas fa-list"></i>
+                            My Recordings
+                        </button>
+                    </div>
+                    
+                    <div class="piano-container">
+                        <div class="piano-keys" id="pianoKeys">
+                            <!-- Keys will be generated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Music Visualization -->
+                <div class="visualization-section">
+                    <canvas id="musicCanvas" width="800" height="200"></canvas>
+                </div>
+
+                <div class="midi-roll-section" style="margin-top:10px;">
+                    <canvas id="midiRollCanvas" width="800" height="100"></canvas>
+                </div>
+            </div>
+
+            <!-- Right Panel - AI & History -->
+            <div class="right-panel">
+                <!-- Tabbed Feature Selector -->
+                <div class="right-tabs" style="display: flex; gap: 2px; margin-bottom: 4px;">
+                    <button class="btn btn-sm right-tab-btn" id="tab-chords" onclick="showRightTab('chords')">Chords</button>
+                    <button class="btn btn-sm right-tab-btn" id="tab-playlist" onclick="showRightTab('playlist')">Playlist</button>
+                    <button class="btn btn-sm right-tab-btn" id="tab-recordings" onclick="showRightTab('recordings')">Recordings</button>
+                    <button class="btn btn-sm right-tab-btn" id="tab-multitrack" onclick="showRightTab('multitrack')">Multi-Track</button>
+                    <button class="btn btn-sm right-tab-btn" id="tab-sheet" onclick="showRightTab('sheet')">Sheet</button>
+                </div>
+                <!-- Tab Content Containers -->
+                <div id="right-tab-chords" class="right-tab-content">
+                    <div style="margin-bottom: 12px; display: flex; gap: 8px; align-items: center;">
+                        <select id="famousSongPicker" style="flex:1; padding: 6px 10px; border-radius: 8px; font-size: 1rem;">
+                            <option value="">🎵 Load Famous Song</option>
+                            <option value="Twinkle Twinkle Little Star">Twinkle Twinkle Little Star</option>
+                            <option value="Ode to Joy">Ode to Joy</option>
+                            <option value="Amazing Grace">Amazing Grace</option>
+                            <option value="Greensleeves">Greensleeves</option>
+                            <option value="Happy Birthday">Happy Birthday</option>
+                        </select>
+                        <button class="btn btn-sm btn-primary" onclick="loadFamousSong()">Load</button>
+                    </div>
+                    <div class="chord-suggestions-container">
+                        <div id="chordSuggestions">
+                            <div class="chord-suggestion-empty">
+                                <i class="fas fa-guitar"></i>
+                                <p>Play some notes to get chord suggestions!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="right-tab-multitrack" class="right-tab-content" style="display:none;">
+                    <div class="multi-track-container">
+                        <div class="multi-track-header">
+                            <h4>Multi-Track Recording</h4>
+                            <button class="btn btn-primary" id="multiTrackBtn" onclick="toggleMultiTrackRecording()">
+                                <i class="fas fa-circle"></i>
+                                Start Multi-Track
+                            </button>
+                        </div>
+                        <div class="multi-track-controls">
+                            <button class="btn btn-sm btn-info" onclick="exportAllTracks()">
+                                <i class="fas fa-download"></i>
+                                Export All
+                            </button>
+                        </div>
+                        <div class="multi-track-tracks" id="multiTrackTracks">
+                            <div class="multi-track-empty">
+                                <i class="fas fa-microphone"></i>
+                                <p>No tracks recorded yet</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="right-tab-playlist" class="right-tab-content" style="display:none;">
+                    <div class="playlist-container">
+                        <h4>🎵 Collaborative Playlist</h4>
+                        <div style="margin-bottom: 12px;">
+                            <button onclick="addCurrentSongToPlaylist()" class="btn btn-sm btn-primary" style="width: 100%; margin-bottom: 8px;">
+                                <i class="fas fa-plus"></i> Add Current Song
+                            </button>
+                            <button onclick="addSampleSongsToPlaylist()" class="btn btn-sm btn-info" style="width: 100%; margin-bottom: 8px;">
+                                <i class="fas fa-star"></i> Demo Playlist
+                            </button>
+                            <button onclick="clearPlaylist()" class="btn btn-sm btn-secondary" style="width: 100%;">
+                                <i class="fas fa-trash"></i> Clear Playlist
+                            </button>
+                        </div>
+                        <div id="playlistContainer">
+                            <p style="text-align: center; color: rgba(255,255,255,0.7); font-style: italic;">
+                                <i class="fas fa-music"></i><br>
+                                No songs in playlist yet<br>
+                                <small>Load a famous song and click "Add Current Song"</small>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div id="right-tab-recordings" class="right-tab-content" style="display:none;">
+                    <div class="recordings-container">
+                        <h4>🎤 My Recordings</h4>
+                        <div style="margin-bottom: 12px;">
+                            <button onclick="showRecordingsModal()" class="btn btn-sm btn-primary" style="width: 100%; margin-bottom: 8px;">
+                                <i class="fas fa-list"></i> View All Recordings
+                            </button>
+                            <button onclick="exportAllRecordings()" class="btn btn-sm btn-info" style="width: 100%; margin-bottom: 8px;">
+                                <i class="fas fa-download"></i> Export All
+                            </button>
+                            <button onclick="clearAllRecordings()" class="btn btn-sm btn-danger" style="width: 100%;">
+                                <i class="fas fa-trash"></i> Clear All
+                            </button>
+                        </div>
+                        <div id="recordingsPreview">
+                            <p style="text-align: center; color: rgba(255,255,255,0.7); font-style: italic;">
+                                <i class="fas fa-microphone-slash"></i><br>
+                                No recordings yet<br>
+                                <small>Start recording your instrument to see them here</small>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div id="right-tab-sheet" class="right-tab-content" style="display:none;">
+                    <div class="sheet-music-container">
+                        <div class="sheet-music-header">
+                            <h4>Sheet Music Generator</h4>
+                            <button class="btn btn-primary" onclick="generateSheetMusic()">
+                                <i class="fas fa-music"></i>
+                                Generate Sheet
+                            </button>
+                        </div>
+                        <div id="sheetMusicContainer">
+                            <div class="sheet-music-empty">
+                                <i class="fas fa-music"></i>
+                                <p>No sheet music to display</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- AI Suggestions, Leaderboard, History, etc. can be further collapsed if needed -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Background Selector Modal -->
+    <div class="modal" id="backgroundModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Choose Room Background</h3>
+                <button class="close-btn" onclick="closeBackgroundSelector()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="background-grid">
+                    <div class="background-option" data-background="default" onclick="selectBackground('default')">
+                        <div class="background-preview default-bg"></div>
+                        <span>Default</span>
+                    </div>
+                    <div class="background-option" data-background="mountains" onclick="selectBackground('mountains')">
+                        <div class="background-preview mountains-bg"></div>
+                        <span>Alpine Mountains</span>
+                    </div>
+                    <div class="background-option" data-background="beach" onclick="selectBackground('beach')">
+                        <div class="background-preview beach-bg"></div>
+                        <span>Tropical Beach</span>
+                    </div>
+                    <div class="background-option" data-background="forest" onclick="selectBackground('forest')">
+                        <div class="background-preview forest-bg"></div>
+                        <span>Dense Forest</span>
+                    </div>
+                    <div class="background-option" data-background="sunset" onclick="selectBackground('sunset')">
+                        <div class="background-preview sunset-bg"></div>
+                        <span>Golden Sunset</span>
+                    </div>
+                    <div class="background-option" data-background="night" onclick="selectBackground('night')">
+                        <div class="background-preview night-bg"></div>
+                        <span>Starry Night</span>
+                    </div>
+                    <div class="background-option" data-background="ocean" onclick="selectBackground('ocean')">
+                        <div class="background-preview ocean-bg"></div>
+                        <span>Deep Ocean</span>
+                    </div>
+                    <div class="background-option" data-background="aurora" onclick="selectBackground('aurora')">
+                        <div class="background-preview aurora-bg"></div>
+                        <span>Northern Lights</span>
+                    </div>
+                    <div class="background-option" data-background="desert" onclick="selectBackground('desert')">
+                        <div class="background-preview desert-bg"></div>
+                        <span>Desert Dunes</span>
+                    </div>
+                    <div class="background-option" data-background="waterfall" onclick="selectBackground('waterfall')">
+                        <div class="background-preview waterfall-bg"></div>
+                        <span>Waterfall</span>
+                    </div>
+                    <div class="background-option" data-background="volcano" onclick="selectBackground('volcano')">
+                        <div class="background-preview volcano-bg"></div>
+                        <span>Volcano</span>
+                    </div>
+                    <div class="background-option" data-background="canyon" onclick="selectBackground('canyon')">
+                        <div class="background-preview canyon-bg"></div>
+                        <span>Grand Canyon</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Room Settings</h3>
+                <button class="close-btn" onclick="closeSettings()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Your Instrument</label>
+                    <select id="instrumentSelect">
+                        <option value="piano">Piano</option>
+                        <option value="guitar">Guitar</option>
+                        <option value="synth">Synthesizer</option>
+                        <option value="bass">Bass</option>
+                        <option value="drums">Drums</option>
+                        <option value="vocals">Vocals</option>
+                        <option value="violin">Violin</option>
+                        <option value="saxophone">Saxophone</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Profile Picture (Avatar)</label>
+                    <input type="file" id="avatarInput" accept="image/*">
+                    <div id="avatarPreview" style="margin-top:10px;"></div>
+                </div>
+                <div class="form-group">
+                    <label>Display Name</label>
+                    <input type="text" id="displayNameInput" placeholder="Enter your display name">
+                </div>
+                <div class="form-group">
+                    <label>Audio Volume</label>
+                    <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="0.7">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recordings Modal -->
+    <div class="modal" id="recordingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>My Recordings</h3>
+                <button class="close-btn" onclick="closeRecordingsModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="recordingsList">
+                    <p style="text-align: center; color: rgba(255,255,255,0.7); font-style: italic;">
+                        <i class="fas fa-microphone-slash"></i><br>
+                        No recordings yet<br>
+                        <small>Start recording your instrument to see them here</small>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Room data for JavaScript
+        window.roomData = {
+            id: '{{ room.room_id }}',
+            name: '{{ room.name }}',
+            creator: '{{ room.creator }}',
+            participants: {{ room.participants|tojson }},
+            currentTrack: {{ room.current_track|tojson }}
+        };
+    </script>
+    <script src="{{ url_for('static', filename='js/room.js') }}"></script>
+</body>
+</html> 
