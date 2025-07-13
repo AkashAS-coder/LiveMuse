@@ -260,6 +260,44 @@ function setupEventListeners() {
             stopNote(note, e.target);
         }
     });
+    
+    // Chat input event listeners
+    const chatInput = document.querySelector('.chat-input input');
+    if (chatInput) {
+        chatInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendChatMessage();
+            }
+        });
+    }
+    
+    // Track settings event listeners
+    const bpmSlider = document.getElementById('bpmSlider');
+    if (bpmSlider) {
+        bpmSlider.addEventListener('input', updateBPM);
+    }
+    
+    const keySelect = document.getElementById('keySelect');
+    if (keySelect) {
+        keySelect.addEventListener('change', updateKey);
+    }
+    
+    const genreSelect = document.getElementById('genreSelect');
+    if (genreSelect) {
+        genreSelect.addEventListener('change', updateGenre);
+    }
+    
+    const instrumentSelect = document.getElementById('instrumentSelect');
+    if (instrumentSelect) {
+        instrumentSelect.addEventListener('change', function() {
+            setInstrument(this.value);
+        });
+    }
+    
+    const volumeSlider = document.getElementById('volumeSlider');
+    if (volumeSlider) {
+        volumeSlider.addEventListener('input', updateVolume);
+    }
 }
 
 // WebSocket connection
@@ -1410,6 +1448,15 @@ window.exportAllTracks = exportAllTracks;
 window.generateSheetMusic = generateSheetMusic;
 window.exportAllRecordings = exportAllRecordings;
 window.clearAllRecordings = clearAllRecordings;
+window.sendChatMessage = sendChatMessage;
+window.showRightTab = showRightTab;
+window.toggleSettings = toggleSettings;
+window.closeSettings = closeSettings;
+window.leaveRoom = leaveRoom;
+window.requestAISuggestion = requestAISuggestion;
+window.shareRoomLink = shareRoomLink;
+window.downloadMIDI = downloadMIDI;
+window.replaySession = replaySession;
 
 // MIDI roll visualization
 function updateMidiRoll(note) {
