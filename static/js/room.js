@@ -2651,13 +2651,53 @@ function exportPlaylist() {
 
 // Sheet Music functionality
 function generateSheetMusic() {
-    if (recordedNotes.length === 0 && (!currentSong || !currentSong.notes)) {
+    console.log('=== GENERATE SHEET MUSIC ===');
+    console.log('recordedNotes:', recordedNotes);
+    console.log('currentSong:', currentSong);
+    console.log('currentMelody:', currentMelody);
+    
+    // Get music history from localStorage
+    const musicHistory = JSON.parse(localStorage.getItem('musicHistory') || '[]');
+    console.log('musicHistory from localStorage:', musicHistory);
+    
+    // Check multiple sources for notes
+    let notes = [];
+    
+    if (recordedNotes.length > 0) {
+        notes = recordedNotes;
+        console.log('Using recorded notes');
+    } else if (currentSong && currentSong.notes && currentSong.notes.length > 0) {
+        notes = currentSong.notes;
+        console.log('Using current song notes');
+    } else if (currentMelody.length > 0) {
+        // Convert currentMelody to note objects
+        notes = currentMelody.map((note, index) => ({
+            note: note,
+            timestamp: Date.now() - (currentMelody.length - index) * 1000,
+            instrument: currentInstrument
+        }));
+        console.log('Using current melody notes');
+    } else if (musicHistory && musicHistory.length > 0) {
+        // Use recent music history
+        const recentNotes = musicHistory.slice(-20); // Last 20 notes
+        notes = recentNotes.map((note, index) => ({
+            note: note.note || note,
+            timestamp: Date.now() - (recentNotes.length - index) * 1000,
+            instrument: currentInstrument
+        }));
+        console.log('Using music history notes');
+    }
+    
+    if (notes.length === 0) {
+        console.log('No notes available for sheet music generation');
         showNotification('No notes to generate sheet music from! Play some notes or load a song first.', 'error');
         return;
     }
     
-    const notes = recordedNotes.length > 0 ? recordedNotes : currentSong.notes;
+    console.log('Using notes for sheet music:', notes);
+    
     const sheetMusic = generateSheetMusicFromNotes(notes);
+    console.log('Generated sheet music:', sheetMusic);
     
     const container = document.getElementById('sheetMusicContainer');
     if (container) {
@@ -2674,21 +2714,35 @@ ${sheetMusic}
                 </div>
             </div>
         `;
+        console.log('Sheet music container updated');
+    } else {
+        console.error('Sheet music container not found');
     }
     
     showNotification('Sheet music generated!', 'success');
 }
 
 function generateSheetMusicFromNotes(notes) {
-    if (!notes || notes.length === 0) return 'No notes available';
+    console.log('generateSheetMusicFromNotes called with:', notes);
+    
+    if (!notes || notes.length === 0) {
+        console.log('No notes provided to generateSheetMusicFromNotes');
+        return 'No notes available';
+    }
     
     const noteNames = notes.map(note => {
         const noteStr = typeof note === 'string' ? note : note.note;
+        console.log('Processing note:', note, '-> noteStr:', noteStr);
         return noteStr.replace(/\d/g, ''); // Remove octave numbers
     });
     
+    console.log('Note names after processing:', noteNames);
+    
     const uniqueNotes = [...new Set(noteNames)];
+    console.log('Unique notes:', uniqueNotes);
+    
     const key = detectKeyFromNotes(uniqueNotes);
+    console.log('Detected key:', key);
     
     let sheetMusic = `🎵 SHEET MUSIC 🎵\n`;
     sheetMusic += `═══════════════════════════════════════\n\n`;
