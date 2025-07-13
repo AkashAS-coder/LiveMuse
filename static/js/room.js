@@ -136,11 +136,10 @@ function setInstrument(instrument) {
         updateInstrument();
         
         // Send instrument change to server
-        if (socket && socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({
-                type: 'instrument_change',
+        if (socket && socket.connected) {
+            socket.emit('change_instrument', {
                 instrument: instrument
-            }));
+            });
         }
     }
 }
@@ -300,7 +299,7 @@ function setupEventListeners() {
     }
 }
 
-// WebSocket connection
+// Socket.IO connection
 function connectWebSocket() {
     let roomId = new URLSearchParams(window.location.search).get('room');
     
@@ -319,32 +318,47 @@ function connectWebSocket() {
         console.log('No room ID found, using default room');
     }
     
-    // Use secure WebSocket for HTTPS (production) and regular WebSocket for HTTP (development)
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/${roomId}`;
+    console.log('Connecting to Socket.IO with room ID:', roomId);
     
-    console.log('Connecting to WebSocket:', wsUrl);
-    socket = new WebSocket(wsUrl);
+    // Initialize Socket.IO
+    socket = io();
     
-    socket.onopen = function(event) {
-        console.log('WebSocket connected');
+    socket.on('connect', function() {
+        console.log('Socket.IO connected');
         showNotification('Connected to room', 'success');
-    };
+        
+        // Join the room
+        socket.emit('join_room', {
+            room_id: roomId,
+            username: 'User_' + Math.floor(Math.random() * 1000),
+            instrument: currentInstrument
+        });
+    });
     
-    socket.onmessage = function(event) {
-        const data = JSON.parse(event.data);
-        handleWebSocketMessage(data);
-    };
-    
-    socket.onclose = function(event) {
-        console.log('WebSocket disconnected');
+    socket.on('disconnect', function() {
+        console.log('Socket.IO disconnected');
         showNotification('Disconnected from room', 'error');
-    };
+    });
     
-    socket.onerror = function(error) {
-        console.error('WebSocket error:', error);
+    socket.on('connect_error', function(error) {
+        console.error('Socket.IO connection error:', error);
         showNotification('Connection error', 'error');
-    };
+    });
+    
+    // Handle incoming messages
+    socket.on('note_played', handleNotePlayed);
+    socket.on('user_joined', handleUserJoined);
+    socket.on('user_left', handleUserLeft);
+    socket.on('chat_message', handleChatMessage);
+    socket.on('ai_suggestion', handleAISuggestion);
+    socket.on('leaderboard_update', updateLeaderboard);
+    socket.on('ai_visualization', updateAIVisualization);
+    socket.on('room_state', updateRoomState);
+    socket.on('instrument_change', handleInstrumentChange);
+    socket.on('voice_participant_joined', addVoiceParticipant);
+    socket.on('voice_participant_left', removeVoiceParticipant);
+    socket.on('voice_mute_status', updateVoiceMuteStatus);
+    socket.on('participant_instrument', updateParticipantInstrument);
 }
 
 function handleWebSocketMessage(data) {
@@ -429,13 +443,12 @@ function playNote(note, key) {
         }
         
         // Send to server
-        if (socket && socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({
-                type: 'note_played',
+        if (socket && socket.connected) {
+            socket.emit('play_note', {
                 note: note,
                 instrument: currentInstrument,
                 timestamp: Date.now()
-            }));
+            });
         }
         
         // Record if recording
@@ -512,13 +525,12 @@ function playPianoNote(note, key) {
         }
         
         // Send to server
-        if (socket && socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({
-                type: 'note_played',
+        if (socket && socket.connected) {
+            socket.emit('play_note', {
                 note: note,
                 instrument: currentInstrument,
                 timestamp: Date.now()
-            }));
+            });
         }
         
         // Record if recording
@@ -585,13 +597,12 @@ function playNote(note) {
         }
         
         // Send to server
-        if (socket && socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({
-                type: 'note_played',
+        if (socket && socket.connected) {
+            socket.emit('play_note', {
                 note: note,
                 instrument: currentInstrument,
                 timestamp: Date.now()
-            }));
+            });
         }
         
         // Record if recording
@@ -877,20 +888,17 @@ function sendChatMessage() {
     const message = input.value.trim();
     input.value = '';
     
-    if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({
-            type: 'chat_message',
+    if (socket && socket.connected) {
+        socket.emit('chat_message', {
             message: message
-        }));
+        });
     }
 }
 
 // AI suggestion request
 function requestAISuggestion() {
-    if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({
-            type: 'request_ai_suggestion'
-        }));
+    if (socket && socket.connected) {
+        socket.emit('request_ai_suggestion');
     }
 }
 
@@ -903,11 +911,10 @@ function updateBPM() {
         currentBPM = parseInt(bpmSlider.value);
         bpmValue.textContent = currentBPM;
         
-        if (socket && socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({
-                type: 'bpm_change',
+        if (socket && socket.connected) {
+            socket.emit('bpm_change', {
                 bpm: currentBPM
-            }));
+            });
         }
     }
 }
@@ -917,11 +924,10 @@ function updateKey() {
     if (keySelect) {
         currentKey = keySelect.value;
         
-        if (socket && socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({
-                type: 'key_change',
+        if (socket && socket.connected) {
+            socket.emit('key_change', {
                 key: currentKey
-            }));
+            });
         }
     }
 }
@@ -931,21 +937,19 @@ function updateGenre() {
     if (genreSelect) {
         currentGenre = genreSelect.value;
         
-        if (socket && socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({
-                type: 'genre_change',
+        if (socket && socket.connected) {
+            socket.emit('genre_change', {
                 genre: currentGenre
-            }));
+            });
         }
     }
 }
 
 function updateTrackSettings(settings) {
-    if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({
-            type: 'track_settings',
+    if (socket && socket.connected) {
+        socket.emit('track_settings', {
             settings: settings
-        }));
+        });
     }
 }
 
@@ -1578,12 +1582,11 @@ function showEmojiPicker(input) {
 }
 
 function addReaction(messageId, emoji) {
-    if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({
-            type: 'add_reaction',
+    if (socket && socket.connected) {
+        socket.emit('add_reaction', {
             messageId: messageId,
             emoji: emoji
-        }));
+        });
     }
 }
 
@@ -1665,10 +1668,8 @@ function updateLeaderboard(leaderboard) {
 }
 
 function requestLeaderboard() {
-    if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({
-            type: 'request_leaderboard'
-        }));
+    if (socket && socket.connected) {
+        socket.emit('request_leaderboard');
     }
 }
 
