@@ -73,16 +73,24 @@ const INSTRUMENTS = {
     synth: { name: 'Synth', icon: '<i class="fas fa-keyboard"></i>', color: '#DDA0DD' }
 };
 
+
+
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    initializeRoom();
-    setupEventListeners();
-    connectWebSocket();
-    initializeAudio();
-    initializeVisualization();
-    addNewUIElements();
-    renderPiano();
-    updateUserInterface();
+    console.log('DOM loaded, initializing app...');
+    try {
+        initializeRoom();
+        setupEventListeners();
+        connectWebSocket();
+        initializeAudio();
+        initializeVisualization();
+        addNewUIElements();
+        renderPiano();
+        updateUserInterface();
+        console.log('App initialized successfully');
+    } catch (error) {
+        console.error('Error initializing app:', error);
+    }
 
     // --- Instrument select in settings modal ---
     const instrumentSelect = document.getElementById('instrumentSelect');
@@ -257,10 +265,27 @@ function setupEventListeners() {
 // WebSocket connection
 function connectWebSocket() {
     const roomId = new URLSearchParams(window.location.search).get('room');
+    
+    // If no room ID, try to get it from the URL path
+    if (!roomId) {
+        const pathParts = window.location.pathname.split('/');
+        const pathRoomId = pathParts[pathParts.length - 1];
+        if (pathRoomId && pathRoomId !== 'room') {
+            roomId = pathRoomId;
+        }
+    }
+    
+    // If still no room ID, create a default one
+    if (!roomId) {
+        roomId = 'default-room';
+        console.log('No room ID found, using default room');
+    }
+    
     // Use secure WebSocket for HTTPS (production) and regular WebSocket for HTTP (development)
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/${roomId}`;
     
+    console.log('Connecting to WebSocket:', wsUrl);
     socket = new WebSocket(wsUrl);
     
     socket.onopen = function(event) {
@@ -634,6 +659,7 @@ function updateUserInterface() {
     updateAISuggestions();
     updateNoteCount();
     updateVolume();
+    updateRecordingsPreview();
 }
 
 function showAvatarPreview() {
@@ -1058,10 +1084,16 @@ function toBytes(num, len) {
 
 // Recording functionality
 function toggleRecording() {
-    if (isRecording) {
-        stopRecording();
-    } else {
-        startRecording();
+    console.log('toggleRecording called');
+    try {
+        if (isRecording) {
+            stopRecording();
+        } else {
+            startRecording();
+        }
+    } catch (error) {
+        console.error('Error in toggleRecording:', error);
+        showNotification('Recording error: ' + error.message, 'error');
     }
 }
 
@@ -1084,6 +1116,7 @@ function stopRecording() {
     
     const recordBtn = document.querySelector('.recording-controls .btn-primary');
     const downloadBtn = document.querySelector('.recording-controls .btn-secondary');
+    const saveBtn = document.getElementById('saveRecordingBtn');
     
     if (recordBtn) {
         recordBtn.innerHTML = '<i class="fas fa-circle"></i> Start Recording';
@@ -1095,8 +1128,288 @@ function stopRecording() {
         downloadBtn.disabled = false;
     }
     
+    if (saveBtn && recordedNotes.length > 0) {
+        saveBtn.style.display = 'inline-block';
+    }
+    
     showNotification('Recording stopped', 'info');
 }
+
+function saveRecording() {
+    if (recordedNotes.length === 0) {
+        showNotification('No recording to save', 'error');
+        return;
+    }
+    
+    const recording = {
+        id: Date.now().toString(),
+        name: `Recording ${new Date().toLocaleString()}`,
+        notes: recordedNotes,
+        duration: recordedNotes.length > 0 ? 
+            recordedNotes[recordedNotes.length - 1].timestamp - recordedNotes[0].timestamp : 0,
+        createdAt: Date.now()
+    };
+    
+    // Save to localStorage
+    const recordings = JSON.parse(localStorage.getItem('recordings') || '[]');
+    recordings.unshift(recording);
+    localStorage.setItem('recordings', JSON.stringify(recordings));
+    
+    // Hide save button
+    const saveBtn = document.getElementById('saveRecordingBtn');
+    if (saveBtn) {
+        saveBtn.style.display = 'none';
+    }
+    
+    showNotification('Recording saved!', 'success');
+    updateRecordingsPreview();
+}
+
+function showRecordingsModal() {
+    console.log('showRecordingsModal called');
+    try {
+        const modal = document.getElementById('recordingsModal');
+        if (modal) {
+            modal.style.display = 'block';
+            updateRecordingsList();
+        } else {
+            console.error('Recordings modal not found');
+        }
+    } catch (error) {
+        console.error('Error in showRecordingsModal:', error);
+        showNotification('Modal error: ' + error.message, 'error');
+    }
+}
+
+function closeRecordingsModal() {
+    const modal = document.getElementById('recordingsModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function updateRecordingsList() {
+    const recordingsList = document.getElementById('recordingsList');
+    if (!recordingsList) return;
+    
+    const recordings = JSON.parse(localStorage.getItem('recordings') || '[]');
+    
+    if (recordings.length === 0) {
+        recordingsList.innerHTML = `
+            <p style="text-align: center; color: rgba(255,255,255,0.7); font-style: italic;">
+                <i class="fas fa-microphone-slash"></i><br>
+                No recordings yet<br>
+                <small>Start recording your instrument to see them here</small>
+            </p>
+        `;
+        return;
+    }
+    
+    recordingsList.innerHTML = recordings.map(recording => `
+        <div class="recording-item" style="margin-bottom: 15px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h4 style="margin: 0; color: #FFD700;">${recording.name}</h4>
+                <div style="font-size: 0.9rem; color: rgba(255,255,255,0.7);">
+                    ${new Date(recording.createdAt).toLocaleString()}
+                </div>
+            </div>
+            <div style="margin-bottom: 10px; font-size: 0.9rem; color: rgba(255,255,255,0.8);">
+                <span><i class="fas fa-music"></i> ${recording.notes.length} notes</span>
+                <span style="margin-left: 15px;"><i class="fas fa-clock"></i> ${Math.round(recording.duration / 1000)}s</span>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-sm btn-primary" onclick="playRecording('${recording.id}')">
+                    <i class="fas fa-play"></i> Play
+                </button>
+                <button class="btn btn-sm btn-info" onclick="downloadRecording('${recording.id}')">
+                    <i class="fas fa-download"></i> Download
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="deleteRecording('${recording.id}')">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function updateRecordingsPreview() {
+    const recordingsPreview = document.getElementById('recordingsPreview');
+    if (!recordingsPreview) return;
+    
+    const recordings = JSON.parse(localStorage.getItem('recordings') || '[]');
+    
+    if (recordings.length === 0) {
+        recordingsPreview.innerHTML = `
+            <p style="text-align: center; color: rgba(255,255,255,0.7); font-style: italic;">
+                <i class="fas fa-microphone-slash"></i><br>
+                No recordings yet<br>
+                <small>Start recording your instrument to see them here</small>
+            </p>
+        `;
+        return;
+    }
+    
+    // Show latest 3 recordings
+    const latestRecordings = recordings.slice(0, 3);
+    recordingsPreview.innerHTML = latestRecordings.map(recording => `
+        <div class="recording-preview" style="margin-bottom: 10px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 6px;">
+            <div style="font-size: 0.9rem; color: #FFD700; margin-bottom: 5px;">${recording.name}</div>
+            <div style="font-size: 0.8rem; color: rgba(255,255,255,0.7);">
+                ${recording.notes.length} notes • ${Math.round(recording.duration / 1000)}s
+            </div>
+        </div>
+    `).join('');
+}
+
+function playRecording(recordingId) {
+    const recordings = JSON.parse(localStorage.getItem('recordings') || '[]');
+    const recording = recordings.find(r => r.id === recordingId);
+    
+    if (!recording) {
+        showNotification('Recording not found', 'error');
+        return;
+    }
+    
+    if (recording.notes.length === 0) {
+        showNotification('No notes in recording', 'error');
+        return;
+    }
+    
+    isPlaying = true;
+    let currentIndex = 0;
+    
+    function playNext() {
+        if (currentIndex >= recording.notes.length || !isPlaying) {
+            isPlaying = false;
+            return;
+        }
+        
+        const note = recording.notes[currentIndex];
+        playPianoNote(note.note);
+        
+        currentIndex++;
+        const nextNote = recording.notes[currentIndex];
+        if (nextNote) {
+            const delay = nextNote.timestamp - note.timestamp;
+            setTimeout(playNext, delay);
+        } else {
+            isPlaying = false;
+        }
+    }
+    
+    playNext();
+    showNotification('Playing recording...', 'info');
+}
+
+function downloadRecording(recordingId) {
+    const recordings = JSON.parse(localStorage.getItem('recordings') || '[]');
+    const recording = recordings.find(r => r.id === recordingId);
+    
+    if (!recording) {
+        showNotification('Recording not found', 'error');
+        return;
+    }
+    
+    const midiData = generateMIDI(recording.notes);
+    const blob = new Blob([midiData], { type: 'audio/midi' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${recording.name}.mid`;
+    a.click();
+    
+    URL.revokeObjectURL(url);
+    showNotification('Recording downloaded!', 'success');
+}
+
+function deleteRecording(recordingId) {
+    if (!confirm('Are you sure you want to delete this recording?')) {
+        return;
+    }
+    
+    const recordings = JSON.parse(localStorage.getItem('recordings') || '[]');
+    const filteredRecordings = recordings.filter(r => r.id !== recordingId);
+    localStorage.setItem('recordings', JSON.stringify(filteredRecordings));
+    
+    updateRecordingsList();
+    updateRecordingsPreview();
+    showNotification('Recording deleted', 'info');
+}
+
+function exportAllRecordings() {
+    const recordings = JSON.parse(localStorage.getItem('recordings') || '[]');
+    
+    if (recordings.length === 0) {
+        showNotification('No recordings to export', 'error');
+        return;
+    }
+    
+    const dataStr = JSON.stringify(recordings, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dream-app-recordings-${Date.now()}.json`;
+    a.click();
+    
+    URL.revokeObjectURL(url);
+    showNotification('All recordings exported!', 'success');
+}
+
+function clearAllRecordings() {
+    if (!confirm('Are you sure you want to delete ALL recordings? This cannot be undone.')) {
+        return;
+    }
+    
+    localStorage.removeItem('recordings');
+    updateRecordingsList();
+    updateRecordingsPreview();
+    showNotification('All recordings cleared', 'info');
+}
+
+// Add missing playlist functions
+function loadFamousSong() {
+    showNotification('Famous songs feature coming soon!', 'info');
+}
+
+function addSampleSongsToPlaylist() {
+    showNotification('Sample songs feature coming soon!', 'info');
+}
+
+function clearPlaylist() {
+    showNotification('Playlist cleared!', 'info');
+}
+
+// Add missing multi-track functions
+function toggleMultiTrackRecording() {
+    showNotification('Multi-track recording feature coming soon!', 'info');
+}
+
+function exportAllTracks() {
+    showNotification('Export all tracks feature coming soon!', 'info');
+}
+
+// Add missing sheet music function
+function generateSheetMusic() {
+    showNotification('Sheet music generation feature coming soon!', 'info');
+}
+
+// Make functions globally available for onclick handlers
+window.toggleRecording = toggleRecording;
+window.showRecordingsModal = showRecordingsModal;
+window.closeRecordingsModal = closeRecordingsModal;
+window.toggleBackgroundSelector = toggleBackgroundSelector;
+window.closeBackgroundSelector = closeBackgroundSelector;
+window.loadFamousSong = loadFamousSong;
+window.addSampleSongsToPlaylist = addSampleSongsToPlaylist;
+window.clearPlaylist = clearPlaylist;
+window.toggleMultiTrackRecording = toggleMultiTrackRecording;
+window.exportAllTracks = exportAllTracks;
+window.generateSheetMusic = generateSheetMusic;
+window.exportAllRecordings = exportAllRecordings;
+window.clearAllRecordings = clearAllRecordings;
 
 // MIDI roll visualization
 function updateMidiRoll(note) {
@@ -1681,9 +1994,17 @@ function setBackground(bg) {
 }
 
 function toggleBackgroundSelector() {
-    const modal = document.getElementById('backgroundModal');
-    if (modal) {
-        modal.style.display = 'block';
+    console.log('toggleBackgroundSelector called');
+    try {
+        const modal = document.getElementById('backgroundModal');
+        if (modal) {
+            modal.style.display = 'block';
+        } else {
+            console.error('Background modal not found');
+        }
+    } catch (error) {
+        console.error('Error in toggleBackgroundSelector:', error);
+        showNotification('Background selector error: ' + error.message, 'error');
     }
 }
 
