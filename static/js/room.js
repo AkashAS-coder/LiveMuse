@@ -264,7 +264,7 @@ function setupEventListeners() {
 
 // WebSocket connection
 function connectWebSocket() {
-    const roomId = new URLSearchParams(window.location.search).get('room');
+    let roomId = new URLSearchParams(window.location.search).get('room');
     
     // If no room ID, try to get it from the URL path
     if (!roomId) {
